@@ -34,13 +34,27 @@ def load_retriever(opt):
 def _load_retriever(opt):
     retriever_name = opt.retriever
     if "contriever" in retriever_name:
-        tokenizer = AutoTokenizer.from_pretrained(os.path.join(opt.model_dir, hf_model_name[retriever_name]))
-        d_encoder = Contriever.from_pretrained(os.path.join(opt.model_dir, hf_model_name[retriever_name])).to("cuda")
+        model_path = os.path.join(opt.model_dir, hf_model_name[retriever_name])
+        if not os.path.exists(model_path):
+            logger.info(f"Model path {model_path} not found. Trying to load from HuggingFace Hub: {hf_model_name[retriever_name]}")
+            model_path = "facebook/contriever" # Force HF ID for contriever if local fails
+        
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        d_encoder = Contriever.from_pretrained(model_path).to("cuda")
         q_encoder = d_encoder
     elif "dpr" in retriever_name:
-        tokenizer = AutoTokenizer.from_pretrained(os.path.join(opt.model_dir, hf_model_name[retriever_name][0]))
-        d_encoder = DPRC.from_pretrained(os.path.join(opt.model_dir, hf_model_name[retriever_name][0])).to("cuda")
-        q_encoder = DPRQ.from_pretrained(os.path.join(opt.model_dir, hf_model_name[retriever_name][1])).to("cuda")
+        ctx_path = os.path.join(opt.model_dir, hf_model_name[retriever_name][0])
+        q_path = os.path.join(opt.model_dir, hf_model_name[retriever_name][1])
+        
+        # Simple fallback logic for DPR (assuming standard HF names if local missing)
+        if not os.path.exists(ctx_path):
+             ctx_path = "facebook/" + hf_model_name[retriever_name][0]
+        if not os.path.exists(q_path):
+             q_path = "facebook/" + hf_model_name[retriever_name][1]
+
+        tokenizer = AutoTokenizer.from_pretrained(ctx_path)
+        d_encoder = DPRC.from_pretrained(ctx_path).to("cuda")
+        q_encoder = DPRQ.from_pretrained(q_path).to("cuda")
     else:
         raise NotImplementedError("Not supported retriever class")
     d_encoder.eval()
