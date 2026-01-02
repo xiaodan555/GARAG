@@ -1,6 +1,14 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
 from transformers import LlamaForCausalLM, LlamaTokenizer, MistralForCausalLM
-from vllm import LLM, SamplingParams
+# from vllm import LLM, SamplingParams
+# === 修改开始 ===
+try:
+    from vllm import LLM, SamplingParams
+except ImportError:
+    # 如果没安装 vllm，就设为 None，防止报错
+    LLM = None
+    SamplingParams = None
+# === 修改结束 ===
 from openai import OpenAI
 import requests
 from .util import f1
@@ -28,6 +36,7 @@ save_keys = [
 ]
 
 def load_reader(opt):
+    # 只要参数里包含 "ollama"，就启用我们的 Ollama Reader
     if "ollama" in opt.reader:
         return Reader_Ollama(opt)
     elif opt.reader == "chatgpt":
@@ -122,19 +131,121 @@ class Reader_vLLM(torch.nn.Module):
     def get_tokenizer(self):
         return self.tokenizer
     
+# class Reader_Ollama(torch.nn.Module):
+#     def __init__(self, opt):
+#         super().__init__()
+#         # Extract model name from reader string, e.g., "ollama-vicuna" -> "vicuna:7b"
+#         # We need a mapping or assume user passes "ollama-vicuna:7b"
+#         # For simplicity, let's map known ones or use what comes after "ollama-"
+        
+#         self.model_name = opt.reader.replace("ollama-", "")
+#         if self.model_name == "vicuna": self.model_name = "vicuna:7b"
+#         if self.model_name == "llama3": self.model_name = "llama3.1:latest"
+        
+#         self.api_url = "http://localhost:11434/api/generate"
+#         self.system_prompt = "You are a QA assistant. Read the document and answer the question. Your answer should be concise and short phrase, not sentence."
+
+#     def _call_ollama(self, prompt):
+#         data = {
+#             "model": self.model_name,
+#             "prompt": prompt,
+#             "stream": False,
+#             "system": self.system_prompt,
+#             "options": {
+#                 "temperature": 0.0, # Deterministic
+#                 "num_predict": 30
+#             }
+#         }
+#         try:
+#             response = requests.post(self.api_url, json=data)
+#             response.raise_for_status()
+#             return response.json()['response'].strip()
+#         except Exception as e:
+#             logger.error(f"Ollama API call failed: {e}")
+#             return ""
+
+#     def forward(self, contexts, question=None):
+#         # GARAG passes contexts (list of strings) and question (string)
+#         # But sometimes it passes just inputs if it's unified.
+#         # Check Reader_GPT usage: forward(contexts, question)
+        
+#         # If input is already formatted (Reader_vLLM style), handle that
+#         # But attack.py calls reader.generate(contexts, question) -> wrapper -> reader.forward
+        
+#         # Let's align with Reader_GPT signature
+#         preds = []
+#         if question is None:
+#              # Assume contexts are list of full prompts? 
+#              # No, looking at wrapper, inputs are formatted.
+#              # But Reader_GPT signature is specific.
+#              pass
+
+#         # If called from generate(contexts, question) in Reader_Wrapper
+#         if isinstance(contexts, list) and question is not None:
+#              for context in contexts:
+#                 prompt = f"Document: {context}\nQuestion: {question}"
+#                 preds.append(self._call_ollama(prompt))
+#         # If called differently (e.g. vLLM style), adapt
+#         elif isinstance(contexts, list) and question is None:
+#              # Assume contexts are prompts
+#              for prompt in contexts:
+#                   preds.append(self._call_ollama(prompt))
+                  
+#         return preds
+
+#     def get_scores(self, contexts, question, answers):
+#         # We simulate probability score using F1 overlap
+#         # Higher F1 -> Higher probability/score
+#         scores = []
+#         for context in contexts:
+#             prompt = f"Document: {context}\nQuestion: {question}"
+#             pred = self._call_ollama(prompt)
+            
+#             # Calculate max F1 against any of the answers
+#             max_f1 = 0
+#             # answers is usually a list of valid answers [ans1, ans2]
+#             # But sometimes it might be passed differently. 
+#             # In Reader_GPT it receives (contexts, question, answers)
+            
+#             # If answers is a single string, wrap it
+#             current_answers = answers if isinstance(answers, list) else [answers]
+            
+#             for ans in current_answers:
+#                 score = f1(ans, pred)
+#                 if score > max_f1:
+#                     max_f1 = score
+            
+#             # GARAG expects a probability-like score (0-1, or logprob)
+#             # If we return F1 directly (0-1), it might work.
+#             # Reader_GPT returns exp(logprob), which is prob [0, 1].
+#             # So F1 [0, 1] is a reasonable proxy.
+#             scores.append(max_f1)
+            
+#         return scores
+    
+#     def get_tokenizer(self):
+#         # Ollama manages tokenization internally
+#         return None
 class Reader_Ollama(torch.nn.Module):
     def __init__(self, opt):
         super().__init__()
-        # Extract model name from reader string, e.g., "ollama-vicuna" -> "vicuna:7b"
-        # We need a mapping or assume user passes "ollama-vicuna:7b"
-        # For simplicity, let's map known ones or use what comes after "ollama-"
+        # 解析模型名称：比如 "ollama-vicuna" -> "vicuna:7b"
+        # 这里的逻辑是：去掉 "ollama-" 前缀，然后根据关键词匹配具体的 Ollama 模型 tag
+        raw_name = opt.reader.replace("ollama-", "")
         
-        self.model_name = opt.reader.replace("ollama-", "")
-        if self.model_name == "vicuna": self.model_name = "vicuna:7b"
-        if self.model_name == "llama3": self.model_name = "llama3.1:latest"
-        
+        if "vicuna" in raw_name:
+            self.model_name = "vicuna:7b"
+        elif "llama3" in raw_name:
+            self.model_name = "llama3.1:latest" # 请确保这和你 ollama list 里的名字一致
+        elif "qwen" in raw_name:
+            self.model_name = "qwen2.5:7b"
+        else:
+            self.model_name = raw_name # 如果没匹配到，就直接用传进来的名字
+            
         self.api_url = "http://localhost:11434/api/generate"
         self.system_prompt = "You are a QA assistant. Read the document and answer the question. Your answer should be concise and short phrase, not sentence."
+        
+        print(f"[Ollama] Initialized with model: {self.model_name}")
 
     def _call_ollama(self, prompt):
         data = {
@@ -143,8 +254,8 @@ class Reader_Ollama(torch.nn.Module):
             "stream": False,
             "system": self.system_prompt,
             "options": {
-                "temperature": 0.0, # Deterministic
-                "num_predict": 30
+                "temperature": 0.0, # 设置为0，保证实验可复现
+                "num_predict": 50   # 限制回答长度
             }
         }
         try:
@@ -156,66 +267,52 @@ class Reader_Ollama(torch.nn.Module):
             return ""
 
     def forward(self, contexts, question=None):
-        # GARAG passes contexts (list of strings) and question (string)
-        # But sometimes it passes just inputs if it's unified.
-        # Check Reader_GPT usage: forward(contexts, question)
-        
-        # If input is already formatted (Reader_vLLM style), handle that
-        # But attack.py calls reader.generate(contexts, question) -> wrapper -> reader.forward
-        
-        # Let's align with Reader_GPT signature
+        # 模仿 Reader_GPT 的接口
+        # contexts 是检索到的文档列表，question 是问题
         preds = []
+        
+        # 兼容性处理：如果只传了 contexts（某些攻击步骤可能只传 input list）
         if question is None:
-             # Assume contexts are list of full prompts? 
-             # No, looking at wrapper, inputs are formatted.
-             # But Reader_GPT signature is specific.
-             pass
-
-        # If called from generate(contexts, question) in Reader_Wrapper
-        if isinstance(contexts, list) and question is not None:
-             for context in contexts:
-                prompt = f"Document: {context}\nQuestion: {question}"
-                preds.append(self._call_ollama(prompt))
-        # If called differently (e.g. vLLM style), adapt
-        elif isinstance(contexts, list) and question is None:
-             # Assume contexts are prompts
+             # 假设 contexts 已经是拼接好的 Prompt
              for prompt in contexts:
                   preds.append(self._call_ollama(prompt))
-                  
+             return preds
+
+        # 正常 RAG 流程
+        for context in contexts:
+            prompt = f"Document: {context}\nQuestion: {question}"
+            preds.append(self._call_ollama(prompt))
         return preds
 
     def get_scores(self, contexts, question, answers):
-        # We simulate probability score using F1 overlap
-        # Higher F1 -> Higher probability/score
+        # GARAG 需要一个 "分数" 来评估攻击效果（分数越高代表回答越准，攻击者想让这个分数变低）
+        # 由于 Ollama 很难方便地取到 token 级的 logprobs，我们用 F1 分数作为近似概率
+        # F1 = 1.0 (完全正确) -> 类似概率 1.0
+        # F1 = 0.0 (完全错误) -> 类似概率 0.0
+        
         scores = []
+        
+        # 确保 answers 是列表
+        current_answers = answers if isinstance(answers, list) else [answers]
+            
         for context in contexts:
             prompt = f"Document: {context}\nQuestion: {question}"
             pred = self._call_ollama(prompt)
             
-            # Calculate max F1 against any of the answers
+            # 计算预测结果和标准答案的 F1 相似度
             max_f1 = 0
-            # answers is usually a list of valid answers [ans1, ans2]
-            # But sometimes it might be passed differently. 
-            # In Reader_GPT it receives (contexts, question, answers)
-            
-            # If answers is a single string, wrap it
-            current_answers = answers if isinstance(answers, list) else [answers]
-            
             for ans in current_answers:
-                score = f1(ans, pred)
+                score = f1(ans, pred) # 调用 util 里的 f1 函数
                 if score > max_f1:
                     max_f1 = score
             
-            # GARAG expects a probability-like score (0-1, or logprob)
-            # If we return F1 directly (0-1), it might work.
-            # Reader_GPT returns exp(logprob), which is prob [0, 1].
-            # So F1 [0, 1] is a reasonable proxy.
+            # 攻击算法希望这个 score 越小越好
             scores.append(max_f1)
             
         return scores
     
     def get_tokenizer(self):
-        # Ollama manages tokenization internally
+        # 返回 None，TextAttack 会使用默认的空格分词，这通常足够了
         return None
 
 class Reader_GPT(torch.nn.Module):
