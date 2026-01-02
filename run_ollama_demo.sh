@@ -1,5 +1,5 @@
 #!/bin/bash
-export CUDA_VISIBLE_DEVICES=0 
+export CUDA_VISIBLE_DEVICES=1 
 
 # 注意 reader 参数格式： ollama-<模型关键词>
 # 比如 ollama-vicuna 会匹配到 vicuna:7b
