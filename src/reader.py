@@ -19,6 +19,7 @@ import os
 import math
 import torch
 import logging
+from src.util import f1
 
 cls_mapping = {
     "Llama-7b": (LlamaForCausalLM, LlamaTokenizer, True, "Llama-2-7b-chat-hf"),
@@ -226,26 +227,127 @@ class Reader_vLLM(torch.nn.Module):
 #     def get_tokenizer(self):
 #         # Ollama manages tokenization internally
 #         return None
+# class Reader_Ollama(torch.nn.Module):
+#     def __init__(self, opt):
+#         super().__init__()
+#         # 解析模型名称：比如 "ollama-vicuna" -> "vicuna:7b"
+#         # 这里的逻辑是：去掉 "ollama-" 前缀，然后根据关键词匹配具体的 Ollama 模型 tag
+#         raw_name = opt.reader.replace("ollama-", "")
+        
+#         if "vicuna" in raw_name:
+#             self.model_name = "vicuna:7b"
+#         elif "llama3" in raw_name:
+#             self.model_name = "llama3.1:latest" # 请确保这和你 ollama list 里的名字一致
+#         elif "qwen" in raw_name:
+#             self.model_name = "qwen2.5:7b"
+#         else:
+#             self.model_name = raw_name # 如果没匹配到，就直接用传进来的名字
+            
+#         self.api_url = "http://localhost:11434/api/generate"
+#         self.system_prompt = "You are a QA assistant. Read the document and answer the question. Your answer should be concise and short phrase, not sentence."
+        
+#         print(f"[Ollama] Initialized with model: {self.model_name}")
+
+#     def _call_ollama(self, prompt):
+#         data = {
+#             "model": self.model_name,
+#             "prompt": prompt,
+#             "stream": False,
+#             "system": self.system_prompt,
+#             "options": {
+#                 "temperature": 0.0, # 设置为0，保证实验可复现
+#                 "num_predict": 50   # 限制回答长度
+#             }
+#         }
+#         try:
+#             response = requests.post(self.api_url, json=data)
+#             response.raise_for_status()
+#             return response.json()['response'].strip()
+#         except Exception as e:
+#             logger.error(f"Ollama API call failed: {e}")
+#             return ""
+
+#     def forward(self, contexts, question=None):
+#         # 模仿 Reader_GPT 的接口
+#         # contexts 是检索到的文档列表，question 是问题
+#         preds = []
+        
+#         # 兼容性处理：如果只传了 contexts（某些攻击步骤可能只传 input list）
+#         if question is None:
+#              # 假设 contexts 已经是拼接好的 Prompt
+#              for prompt in contexts:
+#                   preds.append(self._call_ollama(prompt))
+#              return preds
+
+#         # 正常 RAG 流程
+#         for context in contexts:
+#             prompt = f"Document: {context}\nQuestion: {question}"
+#             preds.append(self._call_ollama(prompt))
+#         return preds
+
+#     def get_scores(self, contexts, question, answers):
+#         # GARAG 需要一个 "分数" 来评估攻击效果（分数越高代表回答越准，攻击者想让这个分数变低）
+#         # 由于 Ollama 很难方便地取到 token 级的 logprobs，我们用 F1 分数作为近似概率
+#         # F1 = 1.0 (完全正确) -> 类似概率 1.0
+#         # F1 = 0.0 (完全错误) -> 类似概率 0.0
+        
+#         scores = []
+        
+#         # 确保 answers 是列表
+#         current_answers = answers if isinstance(answers, list) else [answers]
+            
+#         for context in contexts:
+#             prompt = f"Document: {context}\nQuestion: {question}"
+#             pred = self._call_ollama(prompt)
+            
+#             # 计算预测结果和标准答案的 F1 相似度
+#             max_f1 = 0
+#             for ans in current_answers:
+#                 score = f1(ans, pred) # 调用 util 里的 f1 函数
+#                 if score > max_f1:
+#                     max_f1 = score
+            
+#             # 攻击算法希望这个 score 越小越好
+#             scores.append(max_f1)
+            
+#         return scores
+    
+#     def get_tokenizer(self):
+#         # 返回 None，TextAttack 会使用默认的空格分词，这通常足够了
+#         return None
 class Reader_Ollama(torch.nn.Module):
     def __init__(self, opt):
         super().__init__()
-        # 解析模型名称：比如 "ollama-vicuna" -> "vicuna:7b"
-        # 这里的逻辑是：去掉 "ollama-" 前缀，然后根据关键词匹配具体的 Ollama 模型 tag
+        # 1. 解析模型名称
         raw_name = opt.reader.replace("ollama-", "")
-        
         if "vicuna" in raw_name:
             self.model_name = "vicuna:7b"
         elif "llama3" in raw_name:
-            self.model_name = "llama3.1:latest" # 请确保这和你 ollama list 里的名字一致
+            self.model_name = "llama3.1:latest"
         elif "qwen" in raw_name:
             self.model_name = "qwen2.5:7b"
         else:
-            self.model_name = raw_name # 如果没匹配到，就直接用传进来的名字
+            self.model_name = raw_name
             
-        self.api_url = "http://localhost:11434/api/generate"
+        # 2. 端口逻辑 (兼容共用和私有)
+        env_host = os.environ.get("OLLAMA_HOST", "localhost:11434")
+        if "http" not in env_host:
+            base_url = f"http://{env_host}"
+        else:
+            base_url = env_host
+        self.api_url = f"{base_url}/api/generate"
+        
         self.system_prompt = "You are a QA assistant. Read the document and answer the question. Your answer should be concise and short phrase, not sentence."
         
-        print(f"[Ollama] Initialized with model: {self.model_name}")
+        print(f"[Ollama] Initialized with model: {self.model_name} on {self.api_url}")
+
+        # 3. 加载 Tokenizer (用于解码 GARAG 传来的 Tensor)
+        try:
+            print("[Ollama] Loading fallback tokenizer (bert-base-uncased)...")
+            self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        except Exception as e:
+            print(f"[Warning] Failed to download tokenizer: {e}")
+            self.tokenizer = None
 
     def _call_ollama(self, prompt):
         data = {
@@ -253,67 +355,70 @@ class Reader_Ollama(torch.nn.Module):
             "prompt": prompt,
             "stream": False,
             "system": self.system_prompt,
-            "options": {
-                "temperature": 0.0, # 设置为0，保证实验可复现
-                "num_predict": 50   # 限制回答长度
-            }
+            "options": {"temperature": 0.0, "num_predict": 50}
         }
         try:
             response = requests.post(self.api_url, json=data)
             response.raise_for_status()
-            return response.json()['response'].strip()
+            return response.json().get('response', '').strip()
         except Exception as e:
             logger.error(f"Ollama API call failed: {e}")
             return ""
 
-    def forward(self, contexts, question=None):
-        # 模仿 Reader_GPT 的接口
-        # contexts 是检索到的文档列表，question 是问题
+    # === 核心 1：forward 兼容 input_ids 和 contexts ===
+    def forward(self, contexts=None, question=None, input_ids=None, **kwargs):
         preds = []
         
-        # 兼容性处理：如果只传了 contexts（某些攻击步骤可能只传 input list）
+        # 情况 A: 传入 input_ids (Tensor)，需要解码
+        if input_ids is not None:
+            decoded_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+            for text in decoded_texts:
+                preds.append(self._call_ollama(text))
+            return preds
+
+        # 情况 B: 传入 contexts (List[str])
         if question is None:
-             # 假设 contexts 已经是拼接好的 Prompt
              for prompt in contexts:
                   preds.append(self._call_ollama(prompt))
              return preds
 
-        # 正常 RAG 流程
         for context in contexts:
             prompt = f"Document: {context}\nQuestion: {question}"
             preds.append(self._call_ollama(prompt))
         return preds
 
-    def get_scores(self, contexts, question, answers):
-        # GARAG 需要一个 "分数" 来评估攻击效果（分数越高代表回答越准，攻击者想让这个分数变低）
-        # 由于 Ollama 很难方便地取到 token 级的 logprobs，我们用 F1 分数作为近似概率
-        # F1 = 1.0 (完全正确) -> 类似概率 1.0
-        # F1 = 0.0 (完全错误) -> 类似概率 0.0
-        
+    # === 核心 2：get_scores 修复 (解决 TypeError) ===
+    # 旧签名: def get_scores(self, contexts, question, answers): -> 报错原因
+    # 新签名: 接收 input_ids 和 label_ids (Wrapper 传来的)
+    def get_scores(self, input_ids, label_ids, **kwargs):
+        """
+        GARAG 在搜索阶段会把 (Prompt) 和 (Answer) 都变成 input_ids 传进来。
+        我们需要把它们变回文字，问 Ollama，然后算分。
+        """
         scores = []
         
-        # 确保 answers 是列表
-        current_answers = answers if isinstance(answers, list) else [answers]
-            
-        for context in contexts:
-            prompt = f"Document: {context}\nQuestion: {question}"
+        # 1. 把 Tensor 解码回人类文字
+        # input_ids -> 完整的 Prompt (Document + Question)
+        prompts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+        
+        # label_ids -> 标准答案 (Gold Answer)
+        gold_answers = self.tokenizer.batch_decode(label_ids, skip_special_tokens=True)
+        
+        # 2. 逐个计算分数
+        for prompt, gold in zip(prompts, gold_answers):
+            # 这里的 prompt 已经是拼接好的 "Document: ... Question: ..."
             pred = self._call_ollama(prompt)
             
-            # 计算预测结果和标准答案的 F1 相似度
-            max_f1 = 0
-            for ans in current_answers:
-                score = f1(ans, pred) # 调用 util 里的 f1 函数
-                if score > max_f1:
-                    max_f1 = score
+            # 计算 F1 分数 (0~1)
+            # 攻击的目标通常是让这个分数变低
+            score = f1(pred, gold)
+            scores.append(score)
             
-            # 攻击算法希望这个 score 越小越好
-            scores.append(max_f1)
-            
-        return scores
+        # 3. 返回 Tensor 格式 (框架需要)
+        return torch.tensor(scores, device=input_ids.device if isinstance(input_ids, torch.Tensor) else 'cpu')
     
     def get_tokenizer(self):
-        # 返回 None，TextAttack 会使用默认的空格分词，这通常足够了
-        return None
+        return self.tokenizer
 
 class Reader_GPT(torch.nn.Module):
     def __init__(self, opt):

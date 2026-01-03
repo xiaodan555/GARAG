@@ -1,0 +1,41 @@
+[01/03/2026 18:25:31] {util.py:62} INFO - Log Set
+[01/03/2026 18:25:31] {attack.py:25} INFO - 
+                              batch_size: 16                                      
+                              corpus_dir: ./data/psgs_w100.tsv                    
+                          crossover_prob: 0.2                                     
+                                data_dir: ./data/ODQA/contriever/demo-test_100.json	[default: ./data/{task}/{retriever}/{dataset}-{split}_100.json]
+                                 dataset: demo                                    	[default: nq]
+                                    gpus: 2                                       
+                                is_black: False                                   
+                              is_genetic: True                                    	[default: False]
+                              is_hotflip: False                                   
+                                 is_save: True                                    	[default: False]
+                                 is_vllm: False                                   
+                               max_iters: 25                                      	[default: 5]
+                          max_new_tokens: 30                                      
+                                  method: typo                                    
+                               model_dir: ../models                               
+                           mutation_prob: 0.4                                     
+                                    name: ollama_demo                             	[default: test]
+                               not_cross: False                                   
+                                 not_mut: False                                   
+                                not_sort: False                                   
+                             num_workers: 5                                       
+                              output_dir: ./output/ollama_demo/20260103-182531    	[default: ./output/{name}/{t}]
+                             parents_num: 10                                      
+                       passage_maxlength: 512                                     
+                                per_prob: 0.2                                     
+                      perturbation_level: 0.2                                     
+                                  reader: ollama-vicuna                           	[default: Llama-7b]
+                          reader_penalty: 1.0                                     
+                               retriever: contriever                              	[default: dpr]
+                       retriever_penalty: 1.1                                     
+                                   split: test                                    
+                                    task: ODQA                                    
+                            template_dir: ./data/template/ollama.json             	[default: ./data/template/{reader}.json]
+                               threshold: 0.95                                    
+             transformations_per_example: 25                                      	[default: 100]
+                           with_wordswap: False                                   
+
+[01/03/2026 18:25:31] {attack.py:26} INFO - The name of experiment is ollama_demo
+[01/03/2026 18:25:31] {attack.py:27} INFO - Attack type is typo

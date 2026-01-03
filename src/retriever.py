@@ -31,34 +31,51 @@ hf_model_name ={
 def load_retriever(opt):
     return Retriever(opt)
 
-def _load_retriever(opt):
-    retriever_name = opt.retriever
-    if "contriever" in retriever_name:
-        model_path = os.path.join(opt.model_dir, hf_model_name[retriever_name])
-        if not os.path.exists(model_path):
-            logger.info(f"Model path {model_path} not found. Trying to load from HuggingFace Hub: {hf_model_name[retriever_name]}")
-            model_path = "facebook/contriever" # Force HF ID for contriever if local fails
+# def _load_retriever(opt):
+#     retriever_name = opt.retriever
+#     if "contriever" in retriever_name:
+#         model_path = os.path.join(opt.model_dir, hf_model_name[retriever_name])
+#         if not os.path.exists(model_path):
+#             logger.info(f"Model path {model_path} not found. Trying to load from HuggingFace Hub: {hf_model_name[retriever_name]}")
+#             model_path = "facebook/contriever" # Force HF ID for contriever if local fails
         
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
-        d_encoder = Contriever.from_pretrained(model_path).to("cuda")
-        q_encoder = d_encoder
-    elif "dpr" in retriever_name:
-        ctx_path = os.path.join(opt.model_dir, hf_model_name[retriever_name][0])
-        q_path = os.path.join(opt.model_dir, hf_model_name[retriever_name][1])
+#         tokenizer = AutoTokenizer.from_pretrained(model_path)
+#         d_encoder = Contriever.from_pretrained(model_path).to("cuda")
+#         q_encoder = d_encoder
+#     elif "dpr" in retriever_name:
+#         ctx_path = os.path.join(opt.model_dir, hf_model_name[retriever_name][0])
+#         q_path = os.path.join(opt.model_dir, hf_model_name[retriever_name][1])
         
-        # Simple fallback logic for DPR (assuming standard HF names if local missing)
-        if not os.path.exists(ctx_path):
-             ctx_path = "facebook/" + hf_model_name[retriever_name][0]
-        if not os.path.exists(q_path):
-             q_path = "facebook/" + hf_model_name[retriever_name][1]
+#         # Simple fallback logic for DPR (assuming standard HF names if local missing)
+#         if not os.path.exists(ctx_path):
+#              ctx_path = "facebook/" + hf_model_name[retriever_name][0]
+#         if not os.path.exists(q_path):
+#              q_path = "facebook/" + hf_model_name[retriever_name][1]
 
-        tokenizer = AutoTokenizer.from_pretrained(ctx_path)
-        d_encoder = DPRC.from_pretrained(ctx_path).to("cuda")
-        q_encoder = DPRQ.from_pretrained(q_path).to("cuda")
-    else:
-        raise NotImplementedError("Not supported retriever class")
-    d_encoder.eval()
-    q_encoder.eval()
+#         tokenizer = AutoTokenizer.from_pretrained(ctx_path)
+#         d_encoder = DPRC.from_pretrained(ctx_path).to("cuda")
+#         q_encoder = DPRQ.from_pretrained(q_path).to("cuda")
+#     else:
+#         raise NotImplementedError("Not supported retriever class")
+#     d_encoder.eval()
+#     q_encoder.eval()
+#     return tokenizer, d_encoder, q_encoder
+def _load_retriever(opt):
+    # 自动选择设备：如果系统强制禁用了 CUDA（比如为了跑 CPU 模式），这里就会自动变 "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[Retriever] Loading Contriever model on device: {device}")
+
+    model_path = os.path.join(opt.model_dir, opt.retriever)
+    if not os.path.exists(model_path):
+        # 如果本地没模型，就用 HuggingFace 的名字
+        model_path = "facebook/contriever"
+        
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    
+    # 关键修改：把 .to("cuda") 变成了 .to(device)
+    d_encoder = Contriever.from_pretrained(model_path).to(device)
+    q_encoder = Contriever.from_pretrained(model_path).to(device)
+    
     return tokenizer, d_encoder, q_encoder
 
 class Encoder(BertModel):

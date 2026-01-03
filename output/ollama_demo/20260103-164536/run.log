@@ -1,0 +1,59 @@
+[01/03/2026 16:45:36] {util.py:62} INFO - Log Set
+[01/03/2026 16:45:36] {attack.py:25} INFO - 
+                              batch_size: 16                                      
+                              corpus_dir: ./data/psgs_w100.tsv                    
+                          crossover_prob: 0.2                                     
+                                data_dir: ./data/ODQA/contriever/demo-test_100.json	[default: ./data/{task}/{retriever}/{dataset}-{split}_100.json]
+                                 dataset: demo                                    	[default: nq]
+                                    gpus: 2                                       
+                                is_black: False                                   
+                              is_genetic: True                                    	[default: False]
+                              is_hotflip: False                                   
+                                 is_save: True                                    	[default: False]
+                                 is_vllm: False                                   
+                               max_iters: 25                                      	[default: 5]
+                          max_new_tokens: 30                                      
+                                  method: typo                                    
+                               model_dir: ../models                               
+                           mutation_prob: 0.4                                     
+                                    name: ollama_demo                             	[default: test]
+                               not_cross: False                                   
+                                 not_mut: False                                   
+                                not_sort: False                                   
+                             num_workers: 5                                       
+                              output_dir: ./output/ollama_demo/20260103-164536    	[default: ./output/{name}/{t}]
+                             parents_num: 10                                      
+                       passage_maxlength: 512                                     
+                                per_prob: 0.2                                     
+                      perturbation_level: 0.2                                     
+                                  reader: ollama-vicuna                           	[default: Llama-7b]
+                          reader_penalty: 1.0                                     
+                               retriever: contriever                              	[default: dpr]
+                       retriever_penalty: 1.1                                     
+                                   split: test                                    
+                                    task: ODQA                                    
+                            template_dir: ./data/template/ollama.json             	[default: ./data/template/{reader}.json]
+                               threshold: 0.95                                    
+             transformations_per_example: 25                                      	[default: 100]
+                           with_wordswap: False                                   
+
+[01/03/2026 16:45:36] {attack.py:26} INFO - The name of experiment is ollama_demo
+[01/03/2026 16:45:36] {attack.py:27} INFO - Attack type is typo
+[01/03/2026 16:45:36] {retriever.py:39} INFO - Model path ../models/contriever not found. Trying to load from HuggingFace Hub: contriever
+[01/03/2026 16:45:47] {_http.py:319} WARNING - '(ReadTimeoutError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Read timed out. (read timeout=10)"), '(Request ID: 0bf8930a-1bea-4010-bc6e-1b81cd51d6ad)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/tokenizer_config.json
+[01/03/2026 16:45:47] {_http.py:328} WARNING - Retrying in 1s [Retry 1/5].
+[01/03/2026 16:45:58] {_http.py:319} WARNING - '(ReadTimeoutError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Read timed out. (read timeout=10)"), '(Request ID: 5acadc3c-020d-4cee-bbec-09ab09985615)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/tokenizer_config.json
+[01/03/2026 16:45:58] {_http.py:328} WARNING - Retrying in 2s [Retry 2/5].
+[01/03/2026 16:46:10] {_http.py:319} WARNING - '(ReadTimeoutError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Read timed out. (read timeout=10)"), '(Request ID: 2085e192-fdb1-4a0f-b182-15f63ec3f5e6)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/tokenizer_config.json
+[01/03/2026 16:46:10] {_http.py:328} WARNING - Retrying in 4s [Retry 3/5].
+[01/03/2026 16:46:24] {_http.py:319} WARNING - '(ReadTimeoutError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Read timed out. (read timeout=10)"), '(Request ID: f74369b2-b0a8-4660-b4df-e653611a48c6)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/tokenizer_config.json
+[01/03/2026 16:46:24] {_http.py:328} WARNING - Retrying in 8s [Retry 4/5].
+[01/03/2026 16:46:35] {_http.py:319} WARNING - '(MaxRetryError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Max retries exceeded with url: /facebook/contriever/resolve/main/tokenizer_config.json (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1017)')))"), '(Request ID: f112a6ff-43c9-42b7-aa91-ce9e73579883)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/tokenizer_config.json
+[01/03/2026 16:46:35] {_http.py:328} WARNING - Retrying in 8s [Retry 5/5].
+[01/03/2026 16:46:43] {_http.py:319} WARNING - '(MaxRetryError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Max retries exceeded with url: /facebook/contriever/resolve/main/tokenizer_config.json (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1017)')))"), '(Request ID: 7c8070a1-b2cd-4ca0-be19-52822806018f)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/tokenizer_config.json
+[01/03/2026 16:46:44] {_http.py:319} WARNING - '(MaxRetryError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Max retries exceeded with url: /facebook/contriever/resolve/main/config.json (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1017)')))"), '(Request ID: 440ee327-f168-4fa5-ab8e-77e390d07405)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/config.json
+[01/03/2026 16:46:44] {_http.py:328} WARNING - Retrying in 1s [Retry 1/5].
+[01/03/2026 16:46:46] {_http.py:319} WARNING - '(MaxRetryError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Max retries exceeded with url: /facebook/contriever/resolve/main/config.json (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1017)')))"), '(Request ID: 6ae8e20f-169b-42fc-98cf-61ffc67b3f95)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/config.json
+[01/03/2026 16:46:46] {_http.py:328} WARNING - Retrying in 2s [Retry 2/5].
+[01/03/2026 16:46:48] {_http.py:319} WARNING - '(MaxRetryError("HTTPSConnectionPool(host='hf-mirror.com', port=443): Max retries exceeded with url: /facebook/contriever/resolve/main/config.json (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1017)')))"), '(Request ID: 0f5f5a5b-2b83-48c5-b1c2-0a89a8c917d7)')' thrown while requesting HEAD https://hf-mirror.com/facebook/contriever/resolve/main/config.json
+[01/03/2026 16:46:48] {_http.py:328} WARNING - Retrying in 4s [Retry 3/5].
