@@ -15,6 +15,8 @@ class Options:
         self.parser.add_argument("--split", type=str, default="test")
         self.parser.add_argument("--reader", type=str, default="Llama-7b")
         self.parser.add_argument("--retriever", type=str, default="dpr")
+        # 👇【加上这一行】👇
+        self.parser.add_argument("--seed", type=int, default=42)
 
         self.parser.add_argument("--task", type=str, default="ODQA")
 
@@ -23,7 +25,7 @@ class Options:
         self.parser.add_argument("--data_dir", type=str, default="./data/{task}/{retriever}/{dataset}-{split}_100.json")
         self.parser.add_argument("--corpus_dir", type=str, default="./data/psgs_w100.tsv")
         self.parser.add_argument("--template_dir", type=str, default="./data/template/{reader}.json")
-        self.parser.add_argument("--model_dir", type=str, default="../models")
+        self.parser.add_argument("--model_dir", type=str, default="/data/longyulei/jamming_attack/cache")
 
         # GPU Setting
         self.parser.add_argument("--gpus", type=int, default=2)

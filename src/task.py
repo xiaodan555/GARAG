@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 def evaluate(data):
     result = [0,0,0]
     e2e = [0,0]
-    count = 0
     for d in data:
 
         if d["att"][-1][0][1][0] < 1:
@@ -23,15 +22,9 @@ def evaluate(data):
             result[1] += 1
         if d["att"][-1][0][1][0] < 1 and d["att"][-1][0][1][1] < 1:
             result[2] += 1
-            e2e[0] += EM(d["answers"], d["att_pred"][0])
-            # if EM(d["answers"], d["att_pred"][0]) == 0:
-            #     from IPython import embed; embed()
-            e2e[1] += norm_acc(d["answers"], d["att_pred"][0]) 
-            count += 1
-
-        else:
-            e2e[0] += 1
-            e2e[1] += 1
+            
+        e2e[0] += EM(d["answers"], d["att_pred"][0])
+        e2e[1] += norm_acc(d["answers"], d["att_pred"][0]) 
 
 
     result = [round(r/len(data)*100,1) for r in result] 

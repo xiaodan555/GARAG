@@ -1,1 +1,0 @@
-This noise data is from the repository "https://github.com/yannikbenz/zeroe". We already mentioned in Experimental Setup and Appendix section.
