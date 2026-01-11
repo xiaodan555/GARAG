@@ -12,7 +12,4 @@ venv/
 .ipynb_checkpoints
 
 # Project specific (Large files)
-output/
-data/
-images/
 *.log
