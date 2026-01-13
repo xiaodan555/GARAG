@@ -52,20 +52,19 @@ data/
 **以处理 'nq' 数据集为例：**
 
 1.  **运行检索与采样：**
-    打开 `run_retrieval_all.py`，设置 `DATASET_NAME = "nq"`，然后运行：
+    运行：
     ```bash
     python run_retrieval_all.py
     ```
     *该脚本会在数据集目录下生成 `run_contriever_nq_top100.json`。*
 
 2.  **生成 GARAG 运行数据：**
-    打开 `merge_run_and_corpus.py`，设置 `DATASET_NAME = "nq"`，然后运行：
+    运行：
     ```bash
     python merge_run_and_corpus.py
     ```
     *该脚本会生成最终的实验输入文件 `nq_garag_ready.json`。*
 
-> **如需处理其他数据集，请重复上述步骤并修改对应的 `DATASET_NAME`。**
 
 ## 3. 运行实验
 
@@ -74,9 +73,9 @@ data/
 使用提供的 Shell 脚本启动实验：
 
 ```bash
-bash run_nq_vllm.sh
+bash eval.sh
 ```
 
 **注意事项：**
-*   请检查 `run_nq_vllm.sh` 中的 `--dataset` 参数，确保它指向了您生成的 JSON 文件。
+*   请检查 `eval.sh` 中的 `--dataset` 参数，确保它指向了您生成的 JSON 文件。
 *   实验日志将自动保存到 `output/` 目录下。

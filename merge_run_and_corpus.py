@@ -4,17 +4,8 @@ import csv
 from tqdm import tqdm
 
 # ================= 配置区域 =================
-# 1. 数据集名称 (跑哪个改哪个: "nq", "hotpotqa", "msmarco")
-DATASET_NAME = "msmarco"
-
-# 2. 你的 BEIR 根目录
+# BEIR 根目录
 BEIR_ROOT = "data/beir"
-
-# 3. 自动生成的文件路径 (对应你之前跑出来的文件名)
-BASE_PATH = os.path.join(BEIR_ROOT, DATASET_NAME)
-RUN_FILE = os.path.join(BASE_PATH, f"run_contriever_{DATASET_NAME}_top100.json")
-OUTPUT_FILE = os.path.join(BASE_PATH, f"{DATASET_NAME}_garag_ready.json")
-
 # ===========================================
 
 def load_qrels(path):
@@ -32,16 +23,21 @@ def load_qrels(path):
             qrels[qid].append(doc_id)
     return qrels
 
-def main():
-    print(f"🚀 开始拼接数据集: {DATASET_NAME}")
-    print(f"📂 读取 Run File: {RUN_FILE}")
+def process_dataset(dataset_name):
+    # 路径配置
+    base_path = os.path.join(BEIR_ROOT, dataset_name)
+    run_file = os.path.join(base_path, f"run_contriever_{dataset_name}_top100.json")
+    output_file = os.path.join(base_path, f"{dataset_name}_garag_ready.json")
+
+    print(f"\n🚀 开始拼接数据集: {dataset_name}")
+    print(f"📂 读取 Run File: {run_file}")
     
-    if not os.path.exists(RUN_FILE):
-        print(f"❌ 错误：找不到 Run File！请确认你是否运行了检索脚本。")
+    if not os.path.exists(run_file):
+        print(f"❌ 错误：找不到 Run File！请确认你是否运行了检索脚本 ({run_file})。")
         return
 
     # 1. 加载 Run File (检索结果)
-    with open(RUN_FILE, 'r') as f:
+    with open(run_file, 'r') as f:
         run_data = json.load(f)
     
     target_qids = list(run_data.keys())
@@ -56,14 +52,14 @@ def main():
             
     # 3. 加载 Qrels (为了标记 has_answer)
     # 🔧 修改：针对 MS MARCO 强制使用 dev，防止读到空的 test 文件
-    if DATASET_NAME == "msmarco":
-        qrels_path = os.path.join(BASE_PATH, 'qrels', 'dev.tsv')
+    if dataset_name == "msmarco":
+        qrels_path = os.path.join(base_path, 'qrels', 'dev.tsv')
         print("🔧 检测到 MS MARCO，强制加载 Qrels: dev.tsv")
     else:
         # 其他数据集优先找 test
-        qrels_path = os.path.join(BASE_PATH, 'qrels', 'test.tsv')
+        qrels_path = os.path.join(base_path, 'qrels', 'test.tsv')
         if not os.path.exists(qrels_path):
-            qrels_path = os.path.join(BASE_PATH, 'qrels', 'dev.tsv')
+            qrels_path = os.path.join(base_path, 'qrels', 'dev.tsv')
             
     qrels = load_qrels(qrels_path)
     
@@ -77,16 +73,22 @@ def main():
 
     # 4. 扫描 Corpus (提取内容)
     doc_lookup = {}
-    corpus_path = os.path.join(BASE_PATH, 'corpus.jsonl')
+    corpus_path = os.path.join(base_path, 'corpus.jsonl')
     print(f"📂 扫描 Corpus: {corpus_path} (请稍候)...")
     
+    if not os.path.exists(corpus_path):
+         print(f"❌ 错误：找不到 Corpus File ({corpus_path})")
+         return
+
     with open(corpus_path, 'r', encoding='utf-8') as f:
         # 使用 tqdm 显示进度，因为 MSMARCO 很大
-        for line in tqdm(f, desc="Reading Corpus"):
+        for line in tqdm(f, desc=f"Reading Corpus ({dataset_name})"):
             # 快速检查：如果这一行包含我们需要的ID，再解析 JSON (极大提升速度)
             # 这是一个简单的字符串匹配优化，防止 json.loads 每一行
             # 虽然有误判可能，但在 doc_id 较长时很有效。
             # 为稳妥起见，我们还是老老实实解析，但只存需要的
+            # 为了性能，可以尝试简单字符串 check，但这里为了保险直接 json.loads
+            # 如果觉得慢，可以先 check string in line
             item = json.loads(line)
             if item['_id'] in needed_doc_ids:
                 doc_lookup[item['_id']] = {
@@ -97,7 +99,12 @@ def main():
     # 5. 加载 Queries (获取问题文本)
     print("📂 加载 Queries...")
     query_lookup = {}
-    with open(os.path.join(BASE_PATH, 'queries.jsonl'), 'r', encoding='utf-8') as f:
+    queries_path = os.path.join(base_path, 'queries.jsonl')
+    if not os.path.exists(queries_path):
+         print(f"❌ 错误：找不到 Queries File ({queries_path})")
+         return
+
+    with open(queries_path, 'r', encoding='utf-8') as f:
         for line in f:
             item = json.loads(line)
             if item['_id'] in target_qids:
@@ -145,12 +152,17 @@ def main():
         })
 
     # 7. 保存
-    print(f"💾 保存结果至: {OUTPUT_FILE}")
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    print(f"💾 保存结果至: {output_file}")
+    with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(final_data, f, indent=4)
         
-    print(f"✅ 成功！已生成 {len(final_data)} 条完整数据。")
-    print(f"➡️  下一步：在 eval.sh 中设置 --dataset={DATASET_NAME}_garag_ready")
+    print(f"✅ [{dataset_name}] 处理完成！已生成 {len(final_data)} 条完整数据。")
+
+
+def main():
+    datasets = ["nq", "hotpotqa", "msmarco"]
+    for ds in datasets:
+        process_dataset(ds)
 
 if __name__ == "__main__":
     main()

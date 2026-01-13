@@ -11,5 +11,9 @@ venv/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Project specific (Large files)
+# Project specific (Large files and directories)
 *.log
+data/
+output/
+logs/
+*.tar.gz

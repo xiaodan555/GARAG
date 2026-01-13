@@ -26,7 +26,9 @@ cls_mapping = {
     "vicuna-13b": (LlamaForCausalLM, LlamaTokenizer, True, "vicuna-13b-v1.5"),
     "gemma-7b": (AutoModelForCausalLM, AutoTokenizer, True, "gemma-7b-it"),
     "qwen-8b": (AutoModelForCausalLM, AutoTokenizer, True, "Qwen3-8B"),
-    "deepseek": (AutoModelForCausalLM, AutoTokenizer, True, "DeepSeek-R1-Distill-Llama-8B")
+    "deepseek": (AutoModelForCausalLM, AutoTokenizer, True, "DeepSeek-R1-Distill-Llama-8B"),
+    "llama3.2-1b": (AutoModelForCausalLM, AutoTokenizer, True, "Llama-3.2-1B-Instruct"),
+    "Llama-3.2-1B-Instruct": (AutoModelForCausalLM, AutoTokenizer, True, "Llama-3.2-1B-Instruct")
 }
 
 logger = logging.getLogger(__name__)
@@ -144,14 +146,51 @@ class Reader_Ollama(torch.nn.Module):
         
         # === 恢复 Ollama 初始化逻辑 ===
         raw_name = opt.reader.replace("ollama-", "")
-        if "vicuna" in raw_name:
-            self.model_name = "vicuna:7b"
+        
+        # 1. 优先使用用户明确指定的 tag (e.g. "qwen3:8b")
+        if ":" in raw_name:
+            self.model_name = raw_name
+            
+        # 2. Qwen 系列 (Qwen3, Qwen2.5)
         elif "qwen" in raw_name:
-            self.model_name = "qwen3:8b"
+            if "2.5" in raw_name:
+                if "14b" in raw_name:
+                    self.model_name = "qwen2.5:14b"
+                elif "32b" in raw_name:
+                    self.model_name = "qwen2.5:32b"
+                else:
+                    self.model_name = "qwen2.5:7b"
+            else:
+                # 默认视为 Qwen3
+                self.model_name = "qwen3:8b"
+
+        # 3. Vicuna 系列
+        elif "vicuna" in raw_name:
+            if "13b" in raw_name:
+                self.model_name = "vicuna:13b"
+            else:
+                self.model_name = "vicuna:7b"
+        
+        # 4. Llama 系列 (Llama 3.2, Llama 2, Llama 3.1)
+        elif "llama" in raw_name:
+            if "3.2" in raw_name:
+                if "3b" in raw_name:
+                    self.model_name = "llama3.2:3b"
+                else:
+                    self.model_name = "llama3.2:1b"
+            elif "2" in raw_name:
+                 if "13b" in raw_name:
+                     self.model_name = "llama2:13b"
+                 else:
+                     self.model_name = "llama2:7b"
+            else:
+                # 默认 Llama 3.1
+                self.model_name = "llama3.1:latest"
+
+        # 5. DeepSeek
         elif "deepseek" in raw_name:
             self.model_name = "deepseek-r1:8b"
-        elif "llama" in raw_name:
-            self.model_name = "llama3.1:latest"
+            
         else:
             self.model_name = raw_name
             

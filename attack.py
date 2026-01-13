@@ -231,9 +231,15 @@ def main():
     with open(opt.data_dir, 'r', encoding='utf-8') as f:
         dataset = json.load(f)
         
-    # 🔧 调试模式：为了测试保存功能，暂时只跑前 5 个
-    # 等保存没问题了，记得把这就行注释掉！
-    # dataset = dataset[:5] 
+    # 🔧 调试模式：如果设置了环境变量 GARAG_DEBUG_LIMIT，则截取部分数据
+    debug_limit = os.environ.get("GARAG_DEBUG_LIMIT")
+    if debug_limit:
+        try:
+            limit = int(debug_limit)
+            logger.info(f"🐛 Debug mode active: Limiting dataset to first {limit} examples.")
+            dataset = dataset[:limit]
+        except ValueError:
+            logger.warning(f"⚠️ Invalid GARAG_DEBUG_LIMIT value: {debug_limit}. Ignoring.")
 
     # 5. 数据格式热修复 (text -> context)
     logger.info("🔧 Pre-processing data: Mapping 'text' to 'context'...")
